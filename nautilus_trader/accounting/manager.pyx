@@ -211,7 +211,8 @@ cdef class AccountsManager:
         if not orders_open:
             account.clear_balance_locked(instrument.id)
 
-        total_locked = Decimal(0)
+        # total_locked = Decimal(0)
+        total_locked = []
         base_xrate  = Decimal(0)
 
         cdef Currency currency = instrument.get_cost_currency()
@@ -231,7 +232,7 @@ cdef class AccountsManager:
                 order.side,
                 order.quantity,
                 order.price if order.has_price_c() else order.trigger_price,
-            ).as_decimal()
+            )# .as_decimal()
 
             if account.base_currency is not None:
                 if base_xrate == 0:
@@ -252,15 +253,17 @@ cdef class AccountsManager:
                         return False
 
                 # Apply base xrate
-                locked = round(locked * base_xrate, currency.get_precision())
+                locked = Money(round(locked.as_decimal() * base_xrate, currency.get_precision()), currency)
 
             # Increment total locked
-            total_locked += locked
+            # total_locked += locked
+            total_locked.append(locked)
+        for locked in total_locked:
+            # cdef Money locked_money = Money(total_locked, currency)
+            #account.update_balance_locked(instrument.id, locked_money)
+            account.update_balance_locked(instrument.id, locked)
 
-        cdef Money locked_money = Money(total_locked, currency)
-        account.update_balance_locked(instrument.id, locked_money)
-
-        self._log.info(f"{instrument.id} balance_locked={locked_money.to_formatted_str()}")
+            self._log.info(f"{instrument.id} balance_locked={locked.to_formatted_str()}")
 
         return True
 

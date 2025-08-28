@@ -286,7 +286,8 @@ impl AccountsManager {
             ));
         }
 
-        let mut total_locked = 0.0;
+        // let mut total_locked = 0.0;
+        let mut total_locked: Vec<Money> = vec![];
         let mut base_xrate: Option<f64> = None;
 
         let mut currency = instrument.settlement_currency();
@@ -322,8 +323,8 @@ impl AccountsManager {
                     price?,
                     None,
                 )
-                .unwrap()
-                .as_f64();
+                .unwrap();
+                // .as_f64();
 
             if let Some(base_curr) = account.base_currency() {
                 if base_xrate.is_none() {
@@ -336,25 +337,28 @@ impl AccountsManager {
                 }
 
                 if let Some(xrate) = base_xrate {
-                    locked *= xrate;
+                    // locked *= xrate;
+                    locked = Money::new(locked.as_f64() * xrate, currency);
                 } else {
                     // TODO: Revisit error handling
                     panic!("Cannot calculate base xrate");
                 }
             }
-
-            total_locked += locked;
+            // total_locked += locked;
+            total_locked.push(locked);
         }
 
-        let balance_locked = Money::new(total_locked.to_f64()?, currency);
+        // let balance_locked = Money::new(total_locked.to_f64()?, currency);
 
-        if let Some(balance) = account.balances.get_mut(&instrument.quote_currency()) {
-            balance.locked = balance_locked;
-            let currency = balance.currency;
-            account.recalculate_balance(currency);
+        for locked in total_locked.into_iter() {
+            if let Some(balance) = account.balances.get_mut(&locked.currency) {
+                balance.locked = locked;
+                let currency = balance.currency;
+                account.recalculate_balance(currency);
+            }
+
+            log::info!("{} balance_locked={locked}", instrument.id());
         }
-
-        log::info!("{} balance_locked={balance_locked}", instrument.id());
 
         Some((
             account.clone(),
